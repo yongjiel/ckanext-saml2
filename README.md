@@ -11,6 +11,9 @@ Setup Instructions:
 - To install this extension run the following commands (switch to python env first): then `pip install -r requirements.txt` & `python setup.py develop`
 - Append `saml2` to the `ckan.plugins` list in your ckan configuration file (i.e: `/etc/ckan/production.ini`)
 - make sure that fields are mapped correctly in `production.ini` i.e:
+- to make table 'access_permissions' in database, run this command: 
+        paster --plugin=ckanext_saml2 saml2 create -c /etc/ckan/default/development.ini
+
 ```
 # saml2 config
 saml2.user_mapping =
@@ -76,3 +79,5 @@ saml2.sp_initiates_slo = true
 - Add `saml2.default_org` and `saml2.default_role` - that values will be assigned to newly created users as organization and role in this organization accordingly
 - In order to enable native login and registration as default option, add `saml2.enable_native_login = true|false` directive to config file.
 - `saml2.login_form_sso_text = BUTTON_TEXT` allows you to controll label of SSO button at login page(default: 'Login with SSO').
+
+

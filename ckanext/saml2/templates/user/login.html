@@ -1,7 +1,9 @@
 {% ckan_extends %}
 
 {% block form %}
-  <a href="{{ h.url_for(controller='user', action='login', type='sso', came_from=c.came_from) }}" class="btn btn-primary">{{ c.sso_button_text or _('Login with SSO') }}</a>
+   {% for text, idp in h.get_idps().iteritems() %}
+        <a href="{{ h.url_for(controller='user', action='login', type='sso', came_from=c.came_from, idp=idp) }}" class="btn btn-primary">{{ text|replace("_", " ") or _('Login with SSO') }}</a>
+   {% endfor %}
   <h2>or</h2>
   {{ super() }}
 {% endblock %}

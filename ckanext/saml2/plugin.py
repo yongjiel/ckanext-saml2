@@ -19,6 +19,7 @@ from ckan.controllers.user import UserController
 from routes.mapper import SubMapper
 from saml2.ident import decode as unserialise_nameid
 from saml2.s2repoze.plugins.sp import SAML2Plugin
+import helpers
 
 log = logging.getLogger('ckanext.saml2')
 DELETE_USERS_PERMISSION = 'delete_users'
@@ -214,8 +215,18 @@ class Saml2Plugin(p.SingletonPlugin):
     p.implements(p.IConfigurer, inherit=True)
     p.implements(p.IConfigurable)
     p.implements(p.IActions)
+    p.implements(p.ITemplateHelpers)
 
     ACCESS_PERMISSIONS.create_permission(DELETE_USERS_PERMISSION)
+
+
+    """
+    ITemplateHelpers
+    """
+    def get_helpers(self):
+        return {
+            'get_idps': helpers.get_idps
+        }
 
     def get_actions(self):
         """Return new api actions."""
@@ -229,6 +240,7 @@ class Saml2Plugin(p.SingletonPlugin):
         if p.toolkit.check_ckan_version(min_version='2.4'):
             p.toolkit.add_ckan_admin_tab(config, 'manage_permissions', 'Permissions')
         p.toolkit.add_template_directory(config, 'templates')
+        p.toolkit.add_public_directory(config, 'public')
 
     def make_mapping(self, key, config):
         """Map user data from .ini file."""
@@ -309,6 +321,7 @@ class Saml2Plugin(p.SingletonPlugin):
         # Update user's organization memberships either via the
         # configured saml2.org_converter function or the legacy GSA
         # conversion
+
         update_membership = False
 
         org_roles = {}
@@ -335,10 +348,11 @@ class Saml2Plugin(p.SingletonPlugin):
             # https://github.com/GSA/ckanext-saml2/blob/25521bdbb3728fe8b6532184b8b922d9fca4a0a0/ckanext/saml2/plugin.py
             org = {}
             # apply mapping
-            self.update_data_dict(org, self.organization_mapping, saml_info)
+            self.update_data_dict(org, self.organization_mapping, saml_info, '')
             org_name = org['name']
             org_roles[org_name] = {
-                'capacity': 'editor' if org['field_type_of_user'][0] == 'Publisher' else 'member',
+                #'capacity': 'editor' if org['field_type_of_user'][0] == 'Publisher' else 'member',
+                'capacity': org['capacity'],
                 'data': org,
             }
             update_membership = True
@@ -380,14 +394,18 @@ class Saml2Plugin(p.SingletonPlugin):
                 userobj.activate()
                 userobj.commit()
 
-            data_dict = p.toolkit.get_action('user_show')(
-                data_dict={'id': user_name, })
+            # miss email field and something else, not use user_show
+            #data_dict = p.toolkit.get_action('user_show')(
+            #    data_dict={'id': user_name, })
+            
+            data_dict = model.User.get(user_name).as_dict()
 
         # Merge SAML assertions into data_dict according to
         # user_mapping
         update_user = self.update_data_dict(data_dict,
                                             self.user_mapping,
-                                            saml_info)
+                                            saml_info,
+                                            user_name)
 
         # Remove validation of the values from id and name fields
         user_schema['id'] = [p.toolkit.get_validator('not_empty')]
@@ -480,13 +498,18 @@ class Saml2Plugin(p.SingletonPlugin):
                 p.toolkit.get_action('member_delete')(
                     member_context, member_dict)
 
-    def update_data_dict(self, data_dict, mapping, saml_info):
+    def update_data_dict(self, data_dict, mapping, saml_info, user_name):
         """Updates data_dict with values from saml_info according to
         mapping. Returns the number of items changes."""
         count_modified = 0
+        if not 'id' in mapping:
+            mapping['id'] = ''
         for field in mapping:
-            value = saml_info.get(mapping[field])
-            if value:
+            if field == 'id' and user_name and saml_info.get(mapping[field]) != user_name:
+                value = user_name
+            else:
+                value = saml_info.get(mapping[field])
+            if value and value != ' ':
                 # If list get first value
                 if isinstance(value, list):
                     value = value[0]
