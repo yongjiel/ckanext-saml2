@@ -141,7 +141,7 @@ def is_local_user(userobj):
     # that all users are created with sso
     if not checked_domains:
         return False
-
+    
     if userobj:
         email = str(userobj.email)
         return bool(filter(
@@ -219,7 +219,6 @@ class Saml2Plugin(p.SingletonPlugin):
 
     ACCESS_PERMISSIONS.create_permission(DELETE_USERS_PERMISSION)
 
-
     """
     ITemplateHelpers
     """
@@ -276,6 +275,9 @@ class Saml2Plugin(p.SingletonPlugin):
             out += str(uuid.uuid4())
         return out
 
+    '''
+    IAuthenticator
+    '''
     def identify(self):
         """
         Work around saml2 authorization.
@@ -323,7 +325,6 @@ class Saml2Plugin(p.SingletonPlugin):
         # conversion
 
         update_membership = False
-
         org_roles = {}
         # import the configured function for converting a SAML
         # attribute to a dict for create_organization()
@@ -525,6 +526,9 @@ class Saml2Plugin(p.SingletonPlugin):
                     count_modified += 1
         return count_modified
 
+    '''
+    IAuthenticator
+    '''
     def login(self):
         """
         Login definition.
@@ -549,10 +553,12 @@ class Saml2Plugin(p.SingletonPlugin):
             return base.abort(401)
         h.redirect_to(controller='user', action='dashboard')
 
+    '''
+    IAuthenticator
+    '''
     def logout(self):
         """Logout definition."""
         environ = p.toolkit.request.environ
-
         userobj = p.toolkit.c.userobj
         sp_slo = p.toolkit.asbool(config.get('saml2.sp_initiates_slo', True))
         if not sp_slo or userobj and is_local_user(userobj):
@@ -567,16 +573,15 @@ class Saml2Plugin(p.SingletonPlugin):
         subject_id = environ["repoze.who.identity"]['repoze.who.userid']
         name_id = unserialise_nameid(subject_id)
         client = environ['repoze.who.plugins']["saml2auth"]
-
         # Taken from saml2.client:global_logout but forces
         # HTTP-Redirect binding.
         entity_ids = client.saml_client.users.issuers_of_info(name_id)
+        
         saml_logout = client.saml_client.do_logout(name_id, entity_ids,
                                                    reason='urn:oasis:names:tc:SAML:2.0:logout:user',
                                                    expire=None, sign=True,
                                                    expected_binding=BINDING_HTTP_REDIRECT,
                                                    sign_alg="rsa-sha256", digest_alg="hmac-sha256")
-
         rem = environ['repoze.who.plugins'][client.rememberer_name]
         rem.forget(environ, subject_id)
 
@@ -587,6 +592,9 @@ class Saml2Plugin(p.SingletonPlugin):
             log.debug("IdP logout URL = {0}".format(location))
             h.redirect_to(location)
 
+    '''
+    IAuthenticator
+    '''
     def abort(self, status_code, detail, headers, comment):
         """
         HTTP Status 401 causes a login redirect.
